@@ -1,5 +1,5 @@
 __author__ = 'Pablo Ramos Criado'
-__students__ = 'Nombres_y_Apellidos'
+__students__ = 'Santiago Garcia Dominguez & Fernando Contreras Ramirez'
 
 
 from geopy.geocoders import Nominatim
@@ -12,6 +12,11 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from bson.objectid import ObjectId
 import yaml
+
+
+#diccionario global
+CACHE: dict[str, Point | str] = {} #clave string valor Point
+FAIL_MESSAGE = "Error: La direccion no se ha podido geolocalizar"
 
 def getLocationPoint(address: str) -> Point:
     """ 
@@ -28,20 +33,39 @@ def getLocationPoint(address: str) -> Point:
         geojson.Point
             coordenadas del punto de la direccion
     """
+    
+    if not address:
+        return None
+    
+    #para no llamar a la Api siempre,
+    #creamos un diccionario que actúa a modo de caché
+    if address in CACHE:
+        return CACHE[address] #devolvemos dato
+    
+
     location = None
+    attempts = 0
     while location is None:
         try:
-            time.sleep(1)
+            time.sleep(2)
             #TODO
             # Es necesario proporcionar un user_agent para utilizar la API
             # Utilizar un nombre aleatorio para el user_agent
-            location = Nominatim(user_agent="Mi-Nombre-Aleatorio").geocode(address)
+            location = Nominatim(user_agent="santifer").geocode(address)
         except GeocoderTimedOut:
             # Puede lanzar una excepcion si se supera el tiempo de espera
             # Volver a intentarlo
+            attempts +=1
+            if attempts > 3:
+                CACHE[address] = FAIL_MESSAGE #guardamos en cache y no dev nada
+                return None
             continue
     #TODO
     # Devolver un GeoJSON de tipo punto con la latitud y longitud almacenadas
+    point = Point((location.longitude, location.latitude))
+    CACHE[address] = point
+    return point
+
 
 class Model:
     """ 

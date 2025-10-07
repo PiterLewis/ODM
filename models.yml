@@ -1,14 +1,15 @@
 MiModelo:
   required_vars:
     - nombre
-  admissible_vars:
     - dni
+  admissible_vars:
     - direccion
   unique_indexes:
     - dni
   regular_indexes:
     - nombre
   location_index: direccion
+  
 MiOtroModelo:
   required_vars:
     - nombre
