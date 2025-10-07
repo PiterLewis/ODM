@@ -18,7 +18,7 @@ import yaml
 CACHE: dict[str, Point | str] = {} #clave string valor Point
 FAIL_MESSAGE = "Error: La direccion no se ha podido geolocalizar"
 
-def getLocationPoint(address: str) -> Point:
+def getLocationPoint(address: str) -> Point | str: #en caso de error devuelve un str en cache
     """ 
     Obtiene las coordenadas de una dirección en formato geojson.Point
     Utilizar la API de geopy para obtener las coordenadas de la direccion
