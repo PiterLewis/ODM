@@ -1,5 +1,5 @@
 __author__ = 'Pablo Ramos Criado'
-__students__ = 'Fernando Contreras, Santigo Garcia'
+__students__ = 'Santiago Garcia Dominguez & Fernando Contreras Ramirez'
 
 
 from geopy.geocoders import Nominatim
@@ -13,7 +13,12 @@ from pymongo.server_api import ServerApi
 from bson.objectid import ObjectId
 import yaml
 
-def getLocationPoint(address: str) -> Point:
+
+#diccionario global
+CACHE: dict[str, Point | str] = {} #clave string valor Point
+FAIL_MESSAGE = "Error: La direccion no se ha podido geolocalizar"
+
+def getLocationPoint(address: str) -> Point | str: #en caso de error devuelve un str en cache
     """ 
     Obtiene las coordenadas de una dirección en formato geojson.Point
     Utilizar la API de geopy para obtener las coordenadas de la direccion
@@ -28,21 +33,40 @@ def getLocationPoint(address: str) -> Point:
         geojson.Point
             coordenadas del punto de la direccion
     """
+    
+    if not address:
+        return None
+    
+    #para no llamar a la Api siempre,
+    #creamos un diccionario que actúa a modo de caché
+    if address in CACHE:
+        return CACHE[address] #devolvemos dato
+    
+
     location = None
+    attempts = 0
     while location is None:
         try:
-            time.sleep(1)
+            time.sleep(2)
             #TODO
             #prueba
             # Es necesario proporcionar un user_agent para utilizar la API
             # Utilizar un nombre aleatorio para el user_agent
-            location = Nominatim(user_agent="Mi-Nombre-Aleatorio").geocode(address)
+            location = Nominatim(user_agent="santifer").geocode(address)
         except GeocoderTimedOut:
             # Puede lanzar una excepcion si se supera el tiempo de espera
             # Volver a intentarlo
+            attempts +=1
+            if attempts > 3:
+                CACHE[address] = FAIL_MESSAGE #guardamos en cache y no dev nada
+                return None
             continue
     #TODO
     # Devolver un GeoJSON de tipo punto con la latitud y longitud almacenadas
+    point = Point((location.longitude, location.latitude))
+    CACHE[address] = point
+    return point
+
 
 class Model:
     """ 
@@ -87,7 +111,7 @@ class Model:
     _admissible_vars: set[str]
     _location_var: None
     _db: pymongo.collection.Collection
-
+    _internal_vars: set[str]={}
 
     def __init__(self, **kwargs: dict[str, str | dict]):
         """
@@ -100,7 +124,7 @@ class Model:
             kwargs : dict[str, str | dict]
                 diccionario con los valores de las atributos del modelo
         """
-        _data: dict[str, str | dict] = {}
+        self._data: dict[str, str | dict] = {}
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
@@ -261,6 +285,9 @@ class ModelCursor:
             y devuelve los documentos en forma de objetos modelo.
     """
 
+    model_class: Model
+    cursor: pymongo.cursor.Cursor
+
     def __init__(self, model_class: Model, cursor: pymongo.cursor.Cursor):
         """
         Inicializa el cursor con la clase de modelo y el cursor de pymongo
@@ -272,7 +299,7 @@ class ModelCursor:
             cursor: pymongo.cursor.Cursor
                 Cursor de pymongo a iterar
         """
-        self.model = model_class
+        self.model_class = model_class
         self.cursor = cursor
     
     def __iter__(self) -> Generator:
@@ -284,7 +311,15 @@ class ModelCursor:
         Utilizar alive para comprobar si existen mas documentos.
         """
         #TODO
-        pass #No olvidar eliminar esta linea una vez implementado
+        while(self.cursor.alive == True):
+        #no nos da el ptr al primer elemento sino que es un iterador,
+        #por lo que hay que avanzarlo antes de aniadir.
+            document = next(self.cursor)
+            yield self.model_class(**document) #llamada al constructor y le pasamos dict de valores
+
+        #for doc in self.cursor:                  
+        #yield self.model_class(**doc)        
+            
 
 
 def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd", scope=globals()) -> None:
