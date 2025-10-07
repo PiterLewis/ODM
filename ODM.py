@@ -86,7 +86,7 @@ class Model:
     _admissible_vars: set[str]
     _location_var: None
     _db: pymongo.collection.Collection
-
+    _internal_vars: set[str]={}
 
     def __init__(self, **kwargs: dict[str, str | dict]):
         """
@@ -99,7 +99,7 @@ class Model:
             kwargs : dict[str, str | dict]
                 diccionario con los valores de las atributos del modelo
         """
-        _data: dict[str, str | dict] = {}
+        self._data: dict[str, str | dict] = {}
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
@@ -260,6 +260,9 @@ class ModelCursor:
             y devuelve los documentos en forma de objetos modelo.
     """
 
+    model_class: Model
+    cursor: pymongo.cursor.Cursor
+
     def __init__(self, model_class: Model, cursor: pymongo.cursor.Cursor):
         """
         Inicializa el cursor con la clase de modelo y el cursor de pymongo
@@ -271,7 +274,7 @@ class ModelCursor:
             cursor: pymongo.cursor.Cursor
                 Cursor de pymongo a iterar
         """
-        self.model = model_class
+        self.model_class = model_class
         self.cursor = cursor
     
     def __iter__(self) -> Generator:
@@ -283,7 +286,15 @@ class ModelCursor:
         Utilizar alive para comprobar si existen mas documentos.
         """
         #TODO
-        pass #No olvidar eliminar esta linea una vez implementado
+        while(self.cursor.alive == True):
+        #no nos da el ptr al primer elemento sino que es un iterador,
+        #por lo que hay que avanzarlo antes de aniadir.
+            document = next(self.cursor)
+            yield self.model_class(**document) #llamada al constructor y le pasamos dict de valores
+
+        #for doc in self.cursor:                  
+        #yield self.model_class(**doc)        
+            
 
 
 def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd", scope=globals()) -> None:
