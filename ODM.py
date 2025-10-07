@@ -1,5 +1,5 @@
 __author__ = 'Pablo Ramos Criado'
-__students__ = 'Nombres_y_Apellidos'
+__students__ = 'Fernando Contreras, Santigo Garcia'
 
 
 from geopy.geocoders import Nominatim
@@ -33,6 +33,7 @@ def getLocationPoint(address: str) -> Point:
         try:
             time.sleep(1)
             #TODO
+            #prueba
             # Es necesario proporcionar un user_agent para utilizar la API
             # Utilizar un nombre aleatorio para el user_agent
             location = Nominatim(user_agent="Mi-Nombre-Aleatorio").geocode(address)
