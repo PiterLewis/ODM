@@ -1,0 +1,18 @@
+---------------------------------------------------------------------
+---------------------------------------------------------------------
+
+Testing Mongo DB queries:
+
+- Primero creamos cluster de prueba en Atlas.
+- Luego creamos una base de datos llamada "testing" y agregamos una coleccion de sample data.
+- Abrimos Compass, nos conectamos a la bbdd.
+- Abrimos shell de mongo y hacemos 'use sample_airbnb' para usar esa bbdd.
+
+
+Un ejemplo de query que ejecutamos es:
+db.listingsAndReviews.find({price:{$lte:50}}) # busca listings con precio menor o igual a 50
+db.listingsAndReviews.countDocuments({price:{$lte:50}}) # cuenta cuantos listings cumplen esa condicion
+
+-----------------------------------------------------------------------
+-----------------------------------------------------------------------
+
