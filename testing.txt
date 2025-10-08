@@ -16,3 +16,21 @@ db.listingsAndReviews.countDocuments({price:{$lte:50}}) # cuenta cuantos listing
 -----------------------------------------------------------------------
 -----------------------------------------------------------------------
 
+
+Mostrar cines cerca de una ubicacion dada.
+db.theaters.find({
+  "location.geo": {
+    $near: {
+      $geometry: { type: "Point", coordinates: [ -105.25302, 40.01675 ] },
+      $maxDistance: 10000 
+    }
+  }
+})
+
+db.movies.updateOne({$text: {$search: "\"Star Wars\""}}, {$push: {genres: "Drama"}})
+
+db.movies.updateMany({$text: {$search: "corner"}}, {$push: {genres: "Drama" }})
+
+db.movies.createIndex({ title: "text", plot: "text" })
+
+db.movies.countDocuments({$text: {$search: "Star Wars"}})   
