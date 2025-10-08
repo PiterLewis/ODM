@@ -128,11 +128,26 @@ class Model:
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
-
+        for campo_requerido in self._required_vars:
+              if campo_requerido not in kwargs:
+            #lanza el error
+                raise ValueError(f"El atributo requerido '{campo_requerido}' es obligatorio y no se ha proporcionado.")
+              
+        for atributo_perimitido in kwargs:
+            if atributo_perimitido not in self._admissible_vars:
+                raise ValueError(f"El atributo requerido '{atributo_perimitido}'no es admisible.")
         # Asigna todos los valores en kwargs a las atributos con 
         # nombre las claves en kwargs
+        for atributosNuevos in list(kwargs.keys()):
+            if atributosNuevos in self._addres_vars:
+                direccion_valor = kwargs[atributosNuevos]
+                punto = getLocationPoint(direccion_valor)
         # Utilizamos el atributo data para guardar los variables 
         # almacenadas en la base de datos en una solo atributo
+                if punto: 
+                    new_loc_key = f"{atributosNuevos}_loc"
+                    kwargs[new_loc_key] = punto
+                    self._admissible_vars.add(new_loc_key)
         # Encapsular los datos en una sola variable facilita la 
         # gestion en metodos como save.
         self._data.update(kwargs)
