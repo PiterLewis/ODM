@@ -1,0 +1,12 @@
+User:
+  required_vars:
+    - name
+    - email
+  admissible_vars:
+    - age
+    - address
+  unique_indexes:
+    - name
+  regular_indexes:
+    - email
+  location_index: address

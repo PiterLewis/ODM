@@ -2,20 +2,25 @@ MiModelo:
   required_vars:
     - nombre
     - dni
+    - mail
   admissible_vars:
     - direccion
+    - telefono
   unique_indexes:
     - dni
   regular_indexes:
     - nombre
+    - telefono
   location_index: direccion
   
 MiOtroModelo:
   required_vars:
     - nombre
-  admissible_vars:
     - dni
-    - direccion
+    - telefono
+  admissible_vars:
+    - mail
+    - direccion 
   unique_indexes:
     - dni
   regular_indexes:

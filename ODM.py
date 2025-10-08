@@ -58,7 +58,6 @@ def getLocationPoint(address: str) -> Point | str: #en caso de error devuelve un
             # Volver a intentarlo
             attempts +=1
             if attempts > 3:
-                CACHE[address] = FAIL_MESSAGE #guardamos en cache y no dev nada
                 return None
             continue
     #TODO
