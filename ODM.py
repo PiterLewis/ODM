@@ -60,6 +60,7 @@ def getLocationPoint(address: str) -> Point | str: #en caso de error devuelve un
             if attempts > 3:
                 return None
             continue
+
     #TODO
     # Devolver un GeoJSON de tipo punto con la latitud y longitud almacenadas
     point = Point((location.longitude, location.latitude))
@@ -159,9 +160,11 @@ class Model:
         if name in {'_modified_vars', '_required_vars', '_admissible_vars', '_db', '_location_var'}:
             super().__setattr__(name, value)
             return
+        
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
+
 
         # Asigna el valor value a la variable name
         self._data[name] = value
@@ -276,7 +279,21 @@ class Model:
         cls._db = db_collection
         cls._required_vars = required_vars
         cls._admissible_vars = admissible_vars
+        
         # TODO
+        # aniadir unique_indexes, regular_indexes y location_index
+        if "unique_indexes" in indexes:
+            for unique_index in indexes["unique_indexes"]:
+                cls._db.create_index(unique_index, unique=True)
+    
+        if "regular_indexes" in indexes:
+            for regular_index in indexes["regular_indexes"]:
+                cls._db.create_index(regular_index, unique=False)
+
+        if "location_index" in indexes:
+            cls._db.create_index([(indexes["location_index"]+"_loc", pymongo.GEOSPHERE)], unique=False)
+        
+
 
 
 class ModelCursor:
@@ -364,6 +381,7 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         print("Pinged your deployment. You successfully connected to MongoDB!")
     except Exception as e:
         print(e)
+
     #TODO
     # Declarar tantas clases modelo colecciones existan en la base de datos
     # Leer el fichero de definiciones de modelos para obtener las colecciones,
@@ -373,7 +391,11 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
     # Ignorar el warning de Pylance sobre MiModelo, es incapaz de detectar
     # que se ha declarado la clase en la linea anterior ya que se hace
     # en tiempo de ejecucion.
-    MiModelo.init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
+
+    with open(definitions_path, 'r', encoding='utf-8') as file:
+        models_definitions = yaml.safe_load(file)
+    
+    MiModelo.init_class(db_collection=None, indexes=models_definitions[unique_indexes], required_vars=None, admissible_vars=None)
 
 if __name__ == '__main__':
     
