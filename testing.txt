@@ -34,3 +34,12 @@ db.movies.updateMany({$text: {$search: "corner"}}, {$push: {genres: "Drama" }})
 db.movies.createIndex({ title: "text", plot: "text" })
 
 db.movies.countDocuments({$text: {$search: "Star Wars"}})   
+
+
+
+Instalacion y deploy de tests:
+
+uv add --dev pytest
+
+uv run pytest ./ODM_tests.py
+
