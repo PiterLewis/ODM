@@ -449,21 +449,88 @@ if __name__ == '__main__':
     # Hacer pruebas para comprobar que funciona correctamente el modelo
     #TODO
     # Crear modelo
-
+    initApp(mongodb_uri="mongodb+srv://admin1234:Xhantiago2005@cluster0.hb27z86.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0", db_name="practica_mongo")
     # Asignar nuevo valor a variable admitida del objeto 
+    print("Inicio De PRUEBAS")
+
+    test_object = None
+    try:
+        # --- Crear modelo ---
+        print("\n1. Creando un nuevo objeto 'MiModelo'...")
+        test_object = MiModelo(
+            nombre="Santiago Garcia",
+            dni="12345678Z",
+            mail="santiago@ejemplo.com",
+            telefono="600111222"
+        )
+        print("   -> Objeto creado en memoria. Datos:", test_object._data)
 
     # Asignar nuevo valor a variable no admitida del objeto 
-
+        print("\n2. Asignando un nuevo valor a una variable admitida ('telefono')...")
+        test_object.telefono = "999888777"
+        print("   -> Datos actualizados:", test_object._data)
+        # Si __setattr__ funciona, _modified_vars debería contener 'telefono'
+        print("   -> Campos modificados:", test_object._modified_vars)
     # Guardar
 
     # Asignar nuevo valor a variable admitida del objeto
-
+        print("\n3. Intentando asignar un valor a una variable NO admitida ('apellido')...")
+        try:
+            test_object.apellido = "Dominguez"
+        except AttributeError as e:
+            print(f"   -> ¡ÉXITO! Se ha capturado el error esperado: {e}")
     # Guardar
-
+        print("\n4. Guardando el objeto en la base de datos por primera vez (INSERT)...")
+        test_object.save()
+        print("   -> Objeto guardado. Ahora debería tener un '_id'.")
+        print("   -> Datos en memoria:", test_object._data)
+        print("   -> Campos modificados después de guardar:", test_object._modified_vars) # Debería estar vacío
     # Buscar nuevo documento con find
+        print("\n5. Modificando otro valor admitido ('nombre')...")
+        test_object.nombre = "Santiago Garcia Dominguez"
+        print("   -> Datos actualizados:", test_object._data)
+        print("   -> Campos modificados:", test_object._modified_vars)
 
     # Obtener primer documento
-
+        print("\n8. Obteniendo el objeto desde el cursor de búsqueda...")
+        # Iteramos sobre el cursor para obtener los objetos modelo
+        found_object = None
+        for obj in cursor:
+            found_object = obj
+            break # Solo nos interesa el primero
+        
+        if found_object:
+            print("   -> Objeto encontrado:", found_object._data)
+        else:
+            print("   -> ERROR: No se encontró el objeto que acabamos de guardar.")
+            raise Exception("La búsqueda falló.")
     # Modificar valor de variable admitida
-
+        print("\n8. Obteniendo el objeto desde el cursor de búsqueda...")
+        # Iteramos sobre el cursor para obtener los objetos modelo
+        found_object = None
+        for obj in cursor:
+            found_object = obj
+            break # Solo nos interesa el primero
+        
+        if found_object:
+            print("   -> Objeto encontrado:", found_object._data)
+        else:
+            print("   -> ERROR: No se encontró el objeto que acabamos de guardar.")
+            raise Exception("La búsqueda falló.")
     # Guardar
+        print("\n10. Guardando los cambios del objeto recuperado...")
+        found_object.save()
+        print("   -> Objeto actualizado correctamente.")
+
+        print("\n--- PRUEBAS FINALIZADAS CON ÉXITO ---")
+
+    except (ValueError, AttributeError, NameError, Exception) as e:
+        print(f"\n--- UNA PRUEBA HA FALLADO: {e} ---")
+    
+    finally:
+        # --- Limpieza ---
+        # Es una buena práctica borrar los datos de prueba al finalizar.
+        if test_object and '_id' in test_object._data:
+            print("\n--- Limpiando la base de datos... ---")
+            test_object.delete()
+            print("   -> Objeto de prueba eliminado.")
