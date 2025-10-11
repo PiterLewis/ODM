@@ -164,10 +164,25 @@ class Model:
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
-
-        #comentario de prueba
-        # Asigna el valor value a la variable name
+          #    Consulto la lista de reglas que me dio el arquitecto (initApp).
+        if name not in self._admissible_vars:
+            # Si no está en la lista, no está permitido. Deniego el acceso.
+            raise AttributeError(f"El atributo '{name}' no es admitido por el modelo.")
+        
         self._data[name] = value
+        
+        #    para usar el metodo save
+        self._modified_vars.add(name)
+
+        #si es una direccion llama a la fuuncion getlocationPoint
+        if name in self._address_vars:
+            point = getLocationPoint(value)
+            if point:
+                loc_name = f"{name}_loc"
+                # Actualizo también el campo de coordenadas
+                self._data[loc_name] = point
+                self._modified_vars.add(loc_name)
+
 
     def __getattr__(self, name: str) -> Any:
         """ Sobreescribe el metodo de acceso a atributos del objeto
