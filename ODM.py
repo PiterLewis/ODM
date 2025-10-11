@@ -139,7 +139,7 @@ class Model:
         # Asigna todos los valores en kwargs a las atributos con 
         # nombre las claves en kwargs
         for atributosNuevos in list(kwargs.keys()):
-            if atributosNuevos in self._addres_vars:
+            if atributosNuevos in self._address_vars:
                 direccion_valor = kwargs[atributosNuevos]
                 punto = getLocationPoint(direccion_valor)
         # Utilizamos el atributo data para guardar los variables 
