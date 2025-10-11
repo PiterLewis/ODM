@@ -10,8 +10,8 @@ from ODM import initApp, getLocationPoint, ModelCursor
 # 🔧 Configuration Constants
 # ─────────────────────────────────────────────────────────────
 
-DB_NAME = "abd_test"
-MONGO_URI = "mongodb://localhost:27017/"
+DB_NAME = "practicaODM"
+MONGO_URI = "mongodb+srv://admin1234:Xhantiago2005@cluster0.hb27z86.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 TEST_YML_FILE_PATH = "./models_test.yml"
 COLLECTION_NAME = "User"
 
