@@ -233,7 +233,8 @@ class Model:
         """ 
         #TODO
         # cls es el puntero a la clase
-        pass #No olvidar eliminar esta linea una vez implementado
+        cursor = cls._db.find(filter)
+        return ModelCursor(cls, cursor) #cls es el model class y cursor es el cursor iterador
 
     @classmethod
     def aggregate(cls, pipeline: list[dict]) -> pymongo.command_cursor.CommandCursor:
