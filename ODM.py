@@ -130,6 +130,10 @@ class Model:
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
+        super().__setattr__("_data", {}) #inicializamos el diccionario de datos
+        super().__setattr__("_modified_vars", set()) #inicializamos el set de variables modificadas
+
+    
         for campo_requerido in self._required_vars:
               if campo_requerido not in kwargs:
             #lanza el error
@@ -139,9 +143,9 @@ class Model:
             if atributo_perimitido not in self._admissible_vars:
                 raise ValueError(f"El atributo requerido '{atributo_perimitido}'no es admisible.")
         
-        for campo_requerido, atributo_perimitido in kwargs.items():
-            setattr(self, campo_requerido, atributo_perimitido)
-        
+        for k,v in kwargs.items():
+            setattr(self, k, v) #usamos el __setattr__ para asignar los valores
+
         self._modified_vars.clear() #inicializamos el set de variables modificadas
 
     def __setattr__(self, name: str, value: str | dict) -> None:
@@ -149,7 +153,7 @@ class Model:
         atributos del objeto con el fin de controlar que atributos 
         son modificados y cuando son modificados.
         """
-        if name in {'_modified_vars', '_required_vars', '_admissible_vars', '_db', '_location_var'}:
+        if name in {'_modified_vars', '_required_vars', '_admissible_vars', '_db', '_location_var', '_data'}:
             super().__setattr__(name, value)
             return
         
@@ -167,14 +171,13 @@ class Model:
         self._modified_vars.add(name)
 
         #si es una direccion llama a la fuuncion getlocationPoint
-        if name in self._address_vars:
-            point = getLocationPoint(value)
-            if point:
-                loc_name = f"{name}_loc"
-                # Actualizo también el campo de coordenadas
-                self._data[loc_name] = point
-                self._modified_vars.add(loc_name)
-
+        if name == self._location_var:
+            location_point = getLocationPoint(value)
+            if location_point is None:
+                self._data[f"{self._location_var}_loc"] = FAIL_MESSAGE
+            else:
+                self._data[f"{self._location_var}_loc"] = location_point
+                
 
     def __getattr__(self, name: str) -> Any:
         """ Sobreescribe el metodo de acceso a atributos del objeto
@@ -429,19 +432,31 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
 
         db_collection = db[class_name]
 
-        required_vars = set(class_def.get("required_vars", []))
+        required_vars   = set(class_def.get("required_vars", []))
         admissible_vars = set(class_def.get("admissible_vars", []))
 
-    
-        #cargamos los indices
-        indexes = { 
-                    "unique_indexes": class_def.get("unique_indexes", []),
-                    "regular_indexes": class_def.get("regular_indexes", []),
-                    "location_index": class_def.get("location_index", None)
-                    }
-        
-        new_cls.init_class(db_collection=db_collection, indexes=indexes, required_vars=required_vars, admissible_vars=admissible_vars)
-    
+        # ✅ los requeridos también son admisibles
+        admissible_vars |= required_vars
+        # ✅ permite siempre _id
+        admissible_vars.add("_id")
+
+        loc_field = class_def.get("location_index", None)
+        if loc_field:
+            # ✅ permitimos el campo derivado para el GeoJSON
+            admissible_vars.add(f"{loc_field}_loc")
+
+        indexes = {
+            "unique_indexes": class_def.get("unique_indexes", []) or [],
+            "regular_indexes": class_def.get("regular_indexes", []) or [],
+            "location_index": loc_field
+        }
+
+        new_cls.init_class(
+            db_collection=db_collection,
+            indexes=indexes,
+            required_vars=required_vars,
+            admissible_vars=admissible_vars
+        )
     #MiModelo.init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
 
 if __name__ == '__main__':
@@ -508,7 +523,7 @@ if __name__ == '__main__':
     # Obtener primer documento
         print("\n8. Obteniendo el objeto desde el cursor de búsqueda...")
         # Iteramos sobre el cursor para obtener los objetos modelo
-        found_object = None
+        cursor = MiModelo.find({"dni" : "12345678Z"})
         for obj in cursor:
             found_object = obj
             break # Solo nos interesa el primero
@@ -521,7 +536,7 @@ if __name__ == '__main__':
     # Modificar valor de variable admitida
         print("\n8. Obteniendo el objeto desde el cursor de búsqueda...")
         # Iteramos sobre el cursor para obtener los objetos modelo
-        found_object = None
+        cursor = MiModelo.find({"dni" : "12345678Z"})
         for obj in cursor:
             found_object = obj
             break # Solo nos interesa el primero
