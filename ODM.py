@@ -190,14 +190,30 @@ class Model:
         modelo.
         """
         #TODO
-        pass #No olvidar eliminar esta linea una vez implementado
+        if "_id" in self._data:
+        # Existe 
+            update_doc = {k: self._data[k] for k in getattr(self, "_modified_vars", set())}
+            update_doc.pop("_id", None)
+            if update_doc:
+                self._db.update_one({"_id": self._data["_id"]}, {"$set": update_doc})
+                self._modified_vars.clear()
+        else:
+        # No existe aun
+            result = self._db.insert_one(dict(self._data))
+            self._data["_id"] = result.inserted_id
+            self._modified_vars.clear()
 
     def delete(self) -> None:
         """
         Elimina el modelo de la base de datos
         """
         #TODO
-        pass
+        if "_id" in self._data:
+            self._db.delete_one({"_id": self._data["_id"]})
+            self._data.clear()
+            self._modified_vars.clear()
+        else:
+            raise ValueError("El modelo no existe en la base de datos.")
     
     @classmethod
     def find(cls, filter: dict[str, str | dict]) -> Any:
