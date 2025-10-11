@@ -233,6 +233,7 @@ class Model:
         """ 
         #TODO
         # cls es el puntero a la clase
+        #Esto es un ejemplo de prueba
         cursor = cls._db.find(filter)
         return ModelCursor(cls, cursor) #cls es el model class y cursor es el cursor iterador
 
