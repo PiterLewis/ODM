@@ -112,6 +112,7 @@ class Model:
     _location_var: None
     _db: pymongo.collection.Collection
     _internal_vars: set[str]={}
+    
 
     def __init__(self, **kwargs: dict[str, str | dict]):
         """
@@ -125,6 +126,7 @@ class Model:
                 diccionario con los valores de las atributos del modelo
         """
         self._data: dict[str, str | dict] = {}
+        
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
@@ -136,21 +138,11 @@ class Model:
         for atributo_perimitido in kwargs:
             if atributo_perimitido not in self._admissible_vars:
                 raise ValueError(f"El atributo requerido '{atributo_perimitido}'no es admisible.")
-        # Asigna todos los valores en kwargs a las atributos con 
-        # nombre las claves en kwargs
-        for atributosNuevos in list(kwargs.keys()):
-            if atributosNuevos in self._address_vars:
-                direccion_valor = kwargs[atributosNuevos]
-                punto = getLocationPoint(direccion_valor)
-        # Utilizamos el atributo data para guardar los variables 
-        # almacenadas en la base de datos en una solo atributo
-                if punto: 
-                    new_loc_key = f"{atributosNuevos}_loc"
-                    kwargs[new_loc_key] = punto
-                    self._admissible_vars.add(new_loc_key)
-        # Encapsular los datos en una sola variable facilita la 
-        # gestion en metodos como save.
-        self._data.update(kwargs)
+        
+        for campo_requerido, atributo_perimitido in kwargs.items():
+            setattr(self, campo_requerido, atributo_perimitido)
+        
+        self._modified_vars.clear() #inicializamos el set de variables modificadas
 
     def __setattr__(self, name: str, value: str | dict) -> None:
         """ Sobreescribe el metodo de asignacion de valores a los 
@@ -312,6 +304,8 @@ class Model:
         cls._db = db_collection
         cls._required_vars = required_vars
         cls._admissible_vars = admissible_vars
+        cls._location_var = indexes.get("location_index", None)
+
         
         # TODO
         # aniadir unique_indexes, regular_indexes y location_index

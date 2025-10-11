@@ -4,7 +4,6 @@ MiModelo:
     - dni
     - mail
   admissible_vars:
-    - direccion
     - telefono
   unique_indexes:
     - dni
@@ -19,8 +18,7 @@ MiOtroModelo:
     - dni
     - telefono
   admissible_vars:
-    - mail
-    - direccion 
+    - mail 
   unique_indexes:
     - dni
   regular_indexes:
