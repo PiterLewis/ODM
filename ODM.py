@@ -165,7 +165,7 @@ class Model:
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
 
-        #comentario de prueba
+        
         # Asigna el valor value a la variable name
         self._data[name] = value
 
@@ -391,7 +391,7 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
     #TODO
     # Inicializar base de datos
     client = MongoClient(mongodb_uri, server_api = ServerApi('1'))
-
+    db = client[db_name]
     # Create a new client and connect to the server
     # Send a ping to confirm a successful connection
     try:
@@ -412,8 +412,28 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
 
     with open(definitions_path, 'r', encoding='utf-8') as file:
         models_definitions = yaml.safe_load(file)
+
     
-    MiModelo.init_class(db_collection=None, indexes=models_definitions[unique_indexes], required_vars=None, admissible_vars=None)
+    for class_name, class_def in models_definitions.items():
+        new_cls = type(class_name, (Model,), {})
+        scope[class_name] = new_cls
+
+        db_collection = db[class_name]
+
+        required_vars = set(class_def.get("required_vars", []))
+        admissible_vars = set(class_def.get("admissible_vars", []))
+
+    
+        #cargamos los indices
+        indexes = { 
+                    "unique_indexes": class_def.get("unique_indexes", []),
+                    "regular_indexes": class_def.get("regular_indexes", []),
+                    "location_index": class_def.get("location_index", None)
+                    }
+        
+        new_cls.init_class(db_collection=db_collection, indexes=indexes, required_vars=required_vars, admissible_vars=admissible_vars)
+    
+    MiModelo.init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
 
 if __name__ == '__main__':
     
