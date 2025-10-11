@@ -164,9 +164,23 @@ class Model:
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
-
+        if name not in self._admissible_vars:
+            raise AttributeError(f"El atributo '{name}' no es un atributo admisible")
 
         # Asigna el valor value a la variable name
+        
+        self._modified_vars.add(name)
+
+        if name in self._address_vars:
+            # si es una direccion llamo al getloccation
+            point = getLocationPoint(value)
+            if point:
+                loc_name = f"{name}_loc"
+                # update del campo de coordenadas
+                self._data[loc_name] = point
+                # y lo añado a mis variables modificadas 
+                self._modified_vars.add(loc_name)
+
         self._data[name] = value
 
     def __getattr__(self, name: str) -> Any:
@@ -190,30 +204,26 @@ class Model:
         modelo.
         """
         #TODO
-        if "_id" in self._data:
-        # Existe 
-            update_doc = {k: self._data[k] for k in getattr(self, "_modified_vars", set())}
-            update_doc.pop("_id", None)
-            if update_doc:
-                self._db.update_one({"_id": self._data["_id"]}, {"$set": update_doc})
-                self._modified_vars.clear()
-        else:
-        # No existe aun
-            result = self._db.insert_one(dict(self._data))
-            self._data["_id"] = result.inserted_id
-            self._modified_vars.clear()
+        #si no tiene '_id'
+        if '_id' not in self._data: 
+            #usamos insert para pasarle todos los datos 
+            datos_nuevos = self._db.insert_one(self._data)
+            self._data['id'] = datos_nuevos.inserted_id
+        else: 
+             #si no se actualiza nada salimos 
+             if not self._modified_vars:
+                return
+             campos_actualizar = {}
+             #si no actualizamos los campos
+             for nombre_campo in self._modified_vars:
+                campos_actualizar[nombre_campo] = self._data[nombre_campo]
 
     def delete(self) -> None:
         """
         Elimina el modelo de la base de datos
         """
         #TODO
-        if "_id" in self._data:
-            self._db.delete_one({"_id": self._data["_id"]})
-            self._data.clear()
-            self._modified_vars.clear()
-        else:
-            raise ValueError("El modelo no existe en la base de datos.")
+        pass
     
     @classmethod
     def find(cls, filter: dict[str, str | dict]) -> Any:
@@ -233,8 +243,7 @@ class Model:
         """ 
         #TODO
         # cls es el puntero a la clase
-        cursor = cls._db.find(filter)
-        return ModelCursor(cls, cursor) #cls es el model class y cursor es el cursor iterador
+        pass #No olvidar eliminar esta linea una vez implementado
 
     @classmethod
     def aggregate(cls, pipeline: list[dict]) -> pymongo.command_cursor.CommandCursor:
