@@ -442,7 +442,7 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         
         new_cls.init_class(db_collection=db_collection, indexes=indexes, required_vars=required_vars, admissible_vars=admissible_vars)
     
-    MiModelo.init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
+    #MiModelo.init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
 
 if __name__ == '__main__':
     
@@ -455,15 +455,15 @@ if __name__ == '__main__':
 
     #Inicializar los modelos  con initApp
     #Ejemplo
-    m = MiModelo(nombre="Pablo", apellido="Ramos", edad=18)
-    m.save()
-    m.nombre="Pedro"
-    print(m.nombre)
+    #m = MiModelo(nombre="Pablo", apellido="Ramos", edad=18)
+    #m.save()
+    #m.nombre="Pedro"
+    #print(m.nombre)
 
     # Hacer pruebas para comprobar que funciona correctamente el modelo
     #TODO
     # Crear modelo
-    initApp(mongodb_uri="mongodb+srv://admin1234:Xhantiago2005@cluster0.hb27z86.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0", db_name="practica_mongo")
+    initApp(mongodb_uri="mongodb+srv://santiagogarciabusiness_db_user:Xhantiago2005@practicaodm.ubsyyys.mongodb.net/?retryWrites=true&w=majority&appName=practicaODM", db_name="practica_mongo")
     # Asignar nuevo valor a variable admitida del objeto 
     print("Inicio De PRUEBAS")
 
