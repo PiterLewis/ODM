@@ -17,6 +17,7 @@ import yaml
 #diccionario global
 CACHE: dict[str, Point | str] = {} #clave string valor Point
 FAIL_MESSAGE = "No se pudieron obtener coordenadas"
+NOT_ADMITTED_VARIABLE = "No esta permitida usar esta variable"
 
 def getLocationPoint(address: str) -> Point: #en caso de error devuelve un str en cache
     """ 
@@ -164,8 +165,8 @@ class Model:
             # Si no está en la lista, no está permitido. Deniego el acceso.
             raise AttributeError(f"El atributo '{name}' no es admitido por el modelo.")
         
-        self._data[name] = value
         
+        self._data[name] = value
         #    para usar el metodo save
         self._modified_vars.add(name)
 
@@ -416,7 +417,7 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
     # Leer el fichero de definiciones de modelos para obtener las colecciones,
     # indices y los atributos admitidos y requeridos para cada una de ellas.
     # Ejemplo de declaracion de modelo para colecion llamada MiModelo
-    scope["MiModelo"] = type("MiModelo", (Model,),{})
+    #scope["MiModelo"] = type("MiModelo", (Model,),{})
     # Ignorar el warning de Pylance sobre MiModelo, es incapaz de detectar
     # que se ha declarado la clase en la linea anterior ya que se hace
     # en tiempo de ejecucion.
@@ -434,14 +435,14 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         required_vars   = set(class_def.get("required_vars", []))
         admissible_vars = set(class_def.get("admissible_vars", []))
 
-        # ✅ los requeridos también son admisibles
+        
         admissible_vars |= required_vars
-        # ✅ permite siempre _id
+       
         admissible_vars.add("_id")
 
         loc_field = class_def.get("location_index", None)
+        
         if loc_field:
-            # ✅ permitimos el campo derivado para el GeoJSON
             admissible_vars.add(f"{loc_field}_loc")
 
         indexes = {
@@ -456,6 +457,12 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
             required_vars=required_vars,
             admissible_vars=admissible_vars
         )
+
+    print(persona)
+    print(persona._db)
+    print(persona._required_vars)
+    print(persona._admissible_vars)
+
     #MiModelo.init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
 
 if __name__ == '__main__':
@@ -464,8 +471,6 @@ if __name__ == '__main__':
     #TODO
     initApp(mongodb_uri = "mongodb+srv://admin1234:Xhantiago2005@cluster0.hb27z86.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
    
-
-    
 
     #Inicializar los modelos  con initApp
     #Ejemplo
@@ -477,88 +482,40 @@ if __name__ == '__main__':
     # Hacer pruebas para comprobar que funciona correctamente el modelo
     #TODO
     # Crear modelo
-    initApp(mongodb_uri="mongodb+srv://santiagogarciabusiness_db_user:Xhantiago2005@practicaodm.ubsyyys.mongodb.net/?retryWrites=true&w=majority&appName=practicaODM", db_name="practica_mongo")
+    print("Creando persona")
+    p = persona(
+        nombre="Santiago Garcia Dominguez",
+        dni="98765432J",
+        mail="miemail@outlok.es",
+        telefono="123456789",
+        contactos_emergencia=["+34 666 111 222", "+34 666 333 444"],
+        direccion="Calle Bergantin 39, Playa Honda",   
+    ) #no me doxeen que es real 
+    print("Persona creada")
     # Asignar nuevo valor a variable admitida del objeto 
-    print("Inicio De PRUEBAS")
-
-    test_object = None
-    try:
-        # --- Crear modelo ---
-        print("\n1. Creando un nuevo objeto 'MiModelo'...")
-        test_object = MiModelo(
-            nombre="Santiago Garcia",
-            dni="12345678Z",
-            mail="santiago@ejemplo.com",
-            telefono="600111222"
-        )
-        print("   -> Objeto creado en memoria. Datos:", test_object._data)
-
+    p.nombre = "Santiago G. Dominguez"
+    p.direccion = "Calle Real 1, Madrid"
     # Asignar nuevo valor a variable no admitida del objeto 
-        print("\n2. Asignando un nuevo valor a una variable admitida ('telefono')...")
-        test_object.telefono = "999888777"
-        print("   -> Datos actualizados:", test_object._data)
-        # Si __setattr__ funciona, _modified_vars debería contener 'telefono'
-        print("   -> Campos modificados:", test_object._modified_vars)
+    try:
+        p.edad = 20
+    except AttributeError as e:
+        print(NOT_ADMITTED_VARIABLE + " " + "stack trace :", e)
     # Guardar
-
+    p.save()
+    print("Insert en persona hecho, _id =", p._data.get("_id"))
     # Asignar nuevo valor a variable admitida del objeto
-        print("\n3. Intentando asignar un valor a una variable NO admitida ('apellido')...")
-        try:
-            test_object.apellido = "Dominguez"
-        except AttributeError as e:
-            print(f"   -> ¡ÉXITO! Se ha capturado el error esperado: {e}")
+    p.descripcion = "Practicas remuneradas"
     # Guardar
-        print("\n4. Guardando el objeto en la base de datos por primera vez (INSERT)...")
-        test_object.save()
-        print("   -> Objeto guardado. Ahora debería tener un '_id'.")
-        print("   -> Datos en memoria:", test_object._data)
-        print("   -> Campos modificados después de guardar:", test_object._modified_vars) # Debería estar vacío
+    p.save()
+    print("Update persona OK")
     # Buscar nuevo documento con find
-        print("\n5. Modificando otro valor admitido ('nombre')...")
-        test_object.nombre = "Santiago Garcia Dominguez"
-        print("   -> Datos actualizados:", test_object._data)
-        print("   -> Campos modificados:", test_object._modified_vars)
-
+    current = persona.find({"dni": "12345678J"})
     # Obtener primer documento
-        print("\n8. Obteniendo el objeto desde el cursor de búsqueda...")
-        # Iteramos sobre el cursor para obtener los objetos modelo
-        cursor = MiModelo.find({"dni" : "12345678Z"})
-        for obj in cursor:
-            found_object = obj
-            break # Solo nos interesa el primero
-        
-        if found_object:
-            print("   -> Objeto encontrado:", found_object._data)
-        else:
-            print("   -> ERROR: No se encontró el objeto que acabamos de guardar.")
-            raise Exception("La búsqueda falló.")
+    p2 = next(iter(current), None)
+    if p2 is None:
+        raise RuntimeError("No se encontró la persona, pruebe con otro valor")
     # Modificar valor de variable admitida
-        print("\n8. Obteniendo el objeto desde el cursor de búsqueda...")
-        # Iteramos sobre el cursor para obtener los objetos modelo
-        cursor = MiModelo.find({"dni" : "12345678Z"})
-        for obj in cursor:
-            found_object = obj
-            break # Solo nos interesa el primero
-        
-        if found_object:
-            print("   -> Objeto encontrado:", found_object._data)
-        else:
-            print("   -> ERROR: No se encontró el objeto que acabamos de guardar.")
-            raise Exception("La búsqueda falló.")
+    p.contactos_emergencia = ["+34 600 999 999", "+34 600 888 888"]
     # Guardar
-        print("\n10. Guardando los cambios del objeto recuperado...")
-        found_object.save()
-        print("   -> Objeto actualizado correctamente.")
-
-        print("\n--- PRUEBAS FINALIZADAS CON ÉXITO ---")
-
-    except (ValueError, AttributeError, NameError, Exception) as e:
-        print(f"\n--- UNA PRUEBA HA FALLADO: {e} ---")
-    
-    finally:
-        # --- Limpieza ---
-        # Es una buena práctica borrar los datos de prueba al finalizar.
-        if test_object and '_id' in test_object._data:
-            print("\n--- Limpiando la base de datos... ---")
-            test_object.delete()
-            print("   -> Objeto de prueba eliminado.")
+    p.save()
+    print("Update persona OK")

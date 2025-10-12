@@ -1,26 +1,52 @@
-MiModelo:
+persona:
   required_vars:
     - nombre
     - dni
     - mail
   admissible_vars:
-    - telefono
+    - telefono            
+    - contactos_emergencia  #lista
+    - direccion
+    - descripcion
   unique_indexes:
     - dni
   regular_indexes:
     - nombre
     - telefono
+    - contactos_emergencia   
   location_index: direccion
-  
-MiOtroModelo:
+
+empresa:
   required_vars:
     - nombre
-    - dni
-    - telefono
+    - cif
+    - direccion
   admissible_vars:
-    - mail 
+    - telefonos            #lista 
+    - descripcion
+    - sector
+    - web
   unique_indexes:
-    - dni
+    - cif
   regular_indexes:
     - nombre
+    - sector
+    - telefonos           
+  location_index: direccion
+
+centro_educativo:
+  required_vars:
+    - nombre
+    - codigo
+    - direccion
+  admissible_vars:
+    - tipo              
+    - telefonos          
+    - descripcion
+  unique_indexes:
+    - codigo
+  regular_indexes:
+    - nombre
+    - tipo
+    - telefonos
   location_index: direccion
