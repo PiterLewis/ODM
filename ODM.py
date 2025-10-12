@@ -16,9 +16,9 @@ import yaml
 
 #diccionario global
 CACHE: dict[str, Point | str] = {} #clave string valor Point
-FAIL_MESSAGE = "Error: La direccion no se ha podido geolocalizar"
+FAIL_MESSAGE = "No se pudieron obtener coordenadas"
 
-def getLocationPoint(address: str) -> Point | str: #en caso de error devuelve un str en cache
+def getLocationPoint(address: str) -> Point: #en caso de error devuelve un str en cache
     """ 
     Obtiene las coordenadas de una dirección en formato geojson.Point
     Utilizar la API de geopy para obtener las coordenadas de la direccion
@@ -35,7 +35,7 @@ def getLocationPoint(address: str) -> Point | str: #en caso de error devuelve un
     """
     
     if not address:
-        return None
+        raise ValueError(FAIL_MESSAGE)
     
     #para no llamar a la Api siempre,
     #creamos un diccionario que actúa a modo de caché
@@ -49,7 +49,6 @@ def getLocationPoint(address: str) -> Point | str: #en caso de error devuelve un
         try:
             time.sleep(2)
             #TODO
-            #prueba
             # Es necesario proporcionar un user_agent para utilizar la API
             # Utilizar un nombre aleatorio para el user_agent
             location = Nominatim(user_agent="santifer").geocode(address)
@@ -57,8 +56,8 @@ def getLocationPoint(address: str) -> Point | str: #en caso de error devuelve un
             # Puede lanzar una excepcion si se supera el tiempo de espera
             # Volver a intentarlo
             attempts +=1
-            if attempts > 3:
-                return None
+            if attempts >= 3:
+                raise ValueError(FAIL_MESSAGE)
             continue
 
     #TODO
