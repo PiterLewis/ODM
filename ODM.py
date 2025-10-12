@@ -12,14 +12,21 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from bson.objectid import ObjectId
 import yaml
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+
+MONGO_URI = os.getenv("MONGO_URI")
+DB_NAME = os.getenv("DB_NAME")
+DEFINITIONS_PATH = os.getenv("DEF_PATH")
 
 #diccionario global
 CACHE: dict[str, Point | str] = {} #clave string valor Point
 FAIL_MESSAGE = "No se pudieron obtener coordenadas"
 NOT_ADMITTED_VARIABLE = "No esta permitida usar esta variable"
 
-def getLocationPoint(address: str) -> Point: #en caso de error devuelve un str en cache
+def getLocationPoint(address: str) -> Point: #devuelve un objeto Point
     """ 
     Obtiene las coordenadas de una dirección en formato geojson.Point
     Utilizar la API de geopy para obtener las coordenadas de la direccion
@@ -35,6 +42,7 @@ def getLocationPoint(address: str) -> Point: #en caso de error devuelve un str e
             coordenadas del punto de la direccion
     """
     
+    #si no hay direccion lanza error
     if not address:
         raise ValueError(FAIL_MESSAGE)
     
@@ -44,8 +52,11 @@ def getLocationPoint(address: str) -> Point: #en caso de error devuelve un str e
         return CACHE[address] #devolvemos dato
     
 
+    #valores iniciales
     location = None
     attempts = 0
+
+    #intenta obtener la localizacion
     while location is None:
         try:
             time.sleep(2)
@@ -54,9 +65,8 @@ def getLocationPoint(address: str) -> Point: #en caso de error devuelve un str e
             # Utilizar un nombre aleatorio para el user_agent
             location = Nominatim(user_agent="santifer").geocode(address)
         except GeocoderTimedOut:
-            # Puede lanzar una excepcion si se supera el tiempo de espera
-            # Volver a intentarlo
             attempts +=1
+            #excepcion si supera los attempts
             if attempts >= 3:
                 raise ValueError(FAIL_MESSAGE)
             continue
@@ -64,6 +74,7 @@ def getLocationPoint(address: str) -> Point: #en caso de error devuelve un str e
     #TODO
     # Devolver un GeoJSON de tipo punto con la latitud y longitud almacenadas
     point = Point((location.longitude, location.latitude))
+    #asignacion a la cache
     CACHE[address] = point
     return point
 
@@ -107,6 +118,7 @@ class Model:
             Inicializa las variables de clase en la inicializacion del sistema.
 
     """
+    #variables de clase
     _required_vars: set[str]
     _admissible_vars: set[str]
     _location_var: None
@@ -125,6 +137,7 @@ class Model:
             kwargs : dict[str, str | dict]
                 diccionario con los valores de las atributos del modelo
         """
+        #diccionario de datos del objeto
         self._data: dict[str, str | dict] = {}
         
         #TODO
@@ -133,18 +146,21 @@ class Model:
         super().__setattr__("_data", {}) #inicializamos el diccionario de datos
         super().__setattr__("_modified_vars", set()) #inicializamos el set de variables modificadas
 
-    
+
+        # por cada campo requerido comprueba que esta en los argumentos que le paasamos 
         for campo_requerido in self._required_vars:
               if campo_requerido not in kwargs:
-            #lanza el error
+                #lanza excepcion si no hay campo requerido
                 raise ValueError(f"El atributo requerido '{campo_requerido}' es obligatorio y no se ha proporcionado.")
-              
+        
+        #por cada permitido comprueba que esta en los argumentos que le pasamos
         for atributo_perimitido in kwargs:
             if atributo_perimitido not in self._admissible_vars:
                 raise ValueError(f"El atributo requerido '{atributo_perimitido}'no es admisible.")
         
+        #asignacion de valores a los atributos del objeto
         for k,v in kwargs.items():
-            setattr(self, k, v) #usamos el __setattr__ para asignar los valores
+            setattr(self, k, v) #usamos el __setattr__ sobreescrito para asignar los valores
 
         self._modified_vars.clear() #inicializamos el set de variables modificadas
 
@@ -160,14 +176,14 @@ class Model:
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
-          #    Consulto la lista de reglas que me dio el arquitecto (initApp).
+        # Consulto la lista de reglas que me dio el arquitecto (initApp).
         if name not in self._admissible_vars:
             # Si no está en la lista, no está permitido. Deniego el acceso.
             raise AttributeError(f"El atributo '{name}' no es admitido por el modelo.")
         
         
         self._data[name] = value
-        #    para usar el metodo save
+        #marcamos variable como modificada
         self._modified_vars.add(name)
 
         #si es una direccion llama a la fuuncion getlocationPoint
@@ -184,6 +200,7 @@ class Model:
         __getattr__ solo es llamado cuando no encuentra el atributo
         en el objeto 
         """
+        # ya estaba implementado
         if name in {'_modified_vars', '_required_vars', '_admissible_vars', '_db', '_data', '_location_var'}:
             return super().__getattribute__(name)
         try:
@@ -200,12 +217,20 @@ class Model:
         modelo.
         """
         #TODO
+
+        #si existe quiere decir que tiene un _id en la coleccion
         if "_id" in self._data:
         # Existe 
-            update_doc = {k: self._data[k] for k in getattr(self, "_modified_vars", set())}
+            update_doc = {
+                k: self._data[k] # clave valor para cada variable en los datos del modelo
+                for k in getattr(self, "_modified_vars", set()) #cogemos un empty set si no existe
+                }
+            #no actualizamos el _id, popeamos si existe
             update_doc.pop("_id", None)
             if update_doc:
+                #query de actualizacion con los valores modificados
                 self._db.update_one({"_id": self._data["_id"]}, {"$set": update_doc})
+                #limpio las modificadas del object
                 self._modified_vars.clear()
         else:
         # No existe aun
@@ -218,8 +243,10 @@ class Model:
         Elimina el modelo de la base de datos
         """
         #TODO
+        #si el modelo existe(tiene id) lo elimina
         if "_id" in self._data:
             self._db.delete_one({"_id": self._data["_id"]})
+            #como aditivo limpio los datos del objeto
             self._data.clear()
             self._modified_vars.clear()
         else:
@@ -243,7 +270,8 @@ class Model:
         """ 
         #TODO
         # cls es el puntero a la clase
-       
+        # utilizamos el atributo de clase _db para hacer la consulta
+        # y devolvemos un ModelCursor
         cursor = cls._db.find(filter)
         return ModelCursor(cls, cursor) #cls es el model class y cursor es el cursor iterador
 
@@ -304,6 +332,7 @@ class Model:
             admissible_vars : set[str] 
                 Set de atributos admitidos por el modelo
         """
+        #asignacion de variables de clase
         cls._db = db_collection
         cls._required_vars = required_vars
         cls._admissible_vars = admissible_vars
@@ -346,6 +375,7 @@ class ModelCursor:
             y devuelve los documentos en forma de objetos modelo.
     """
 
+    #asignacion de variables de clase
     model_class: Model
     cursor: pymongo.cursor.Cursor
 
@@ -360,6 +390,7 @@ class ModelCursor:
             cursor: pymongo.cursor.Cursor
                 Cursor de pymongo a iterar
         """
+        # inicializacion de variables de clase
         self.model_class = model_class
         self.cursor = cursor
     
@@ -383,7 +414,7 @@ class ModelCursor:
             
 
 
-def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd", scope=globals()) -> None:
+def initApp(definitions_path: str = "./models.yml", mongodb_uri= "mongodb+srv://admin1234:Xhantiago2005@cluster0.hb27z86.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0" ,db_name="practica_mongo", scope=globals()) -> None:
     """ 
     Declara las clases que heredan de Model para cada uno de los 
     modelos de las colecciones definidas en definitions_path.
@@ -422,35 +453,48 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
     # que se ha declarado la clase en la linea anterior ya que se hace
     # en tiempo de ejecucion.
 
+    #leemos el yml
     with open(definitions_path, 'r', encoding='utf-8') as file:
         models_definitions = yaml.safe_load(file)
 
     
+    #por cada modelo definido en el yml
     for class_name, class_def in models_definitions.items():
+        #creamos la clase dinamicamente
         new_cls = type(class_name, (Model,), {})
+        #la asignamos al scope
         scope[class_name] = new_cls
 
+        #obtenemos la coleccion de la base de datos
         db_collection = db[class_name]
 
+        #obtenemos los atributos requeridos y admitiodos
         required_vars   = set(class_def.get("required_vars", []))
         admissible_vars = set(class_def.get("admissible_vars", []))
 
         
+        #los atributos requeridos son siempre admitidos
         admissible_vars |= required_vars
-       
+
+        #el _id siempre es un atributo admitido
         admissible_vars.add("_id")
 
+        #si hay location_index aniadimos el atributo _loc
         loc_field = class_def.get("location_index", None)
         
+        # si hay campo de localizacion aniadimos el campo _loc 
+        # en los valores de location_index y agregamos a admitidos
         if loc_field:
             admissible_vars.add(f"{loc_field}_loc")
 
+        #preparamos los indices
         indexes = {
             "unique_indexes": class_def.get("unique_indexes", []) or [],
             "regular_indexes": class_def.get("regular_indexes", []) or [],
             "location_index": loc_field
         }
-
+        
+        #inicializamos la clase
         new_cls.init_class(
             db_collection=db_collection,
             indexes=indexes,
@@ -458,18 +502,18 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
             admissible_vars=admissible_vars
         )
 
-    print(persona)
-    print(persona._db)
-    print(persona._required_vars)
-    print(persona._admissible_vars)
-
+    #debugging
+    #print(new_cls)
+    #print(new_cls._db)
+    #print(new_cls._required_vars)
+    #print(new_cls._admissible_vars)
     #MiModelo.init_class(db_collection=None, indexes=None, required_vars=None, admissible_vars=None)
 
 if __name__ == '__main__':
     
     # Inicializar base de datos y modelos con initApp
     #TODO
-    initApp(mongodb_uri = "mongodb+srv://admin1234:Xhantiago2005@cluster0.hb27z86.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+    initApp(mongodb_uri = MONGO_URI, db_name = DB_NAME, definitions_path = DEFINITIONS_PATH)
    
 
     #Inicializar los modelos  con initApp
@@ -485,9 +529,9 @@ if __name__ == '__main__':
     print("Creando persona")
     p = persona(
         nombre="Santiago Garcia Dominguez",
-        dni="98765432J",
+        dni="134366666J",
         mail="miemail@outlok.es",
-        telefono="123456789",
+        telefono="+1 222 333 4444",
         contactos_emergencia=["+34 666 111 222", "+34 666 333 444"],
         direccion="Calle Bergantin 39, Playa Honda",   
     ) #no me doxeen que es real 
@@ -499,7 +543,7 @@ if __name__ == '__main__':
     try:
         p.edad = 20
     except AttributeError as e:
-        print(NOT_ADMITTED_VARIABLE + " " + "stack trace :", e)
+        print(NOT_ADMITTED_VARIABLE + " " + "STACK TRACE :", e)
     # Guardar
     p.save()
     print("Insert en persona hecho, _id =", p._data.get("_id"))
@@ -509,7 +553,7 @@ if __name__ == '__main__':
     p.save()
     print("Update persona OK")
     # Buscar nuevo documento con find
-    current = persona.find({"dni": "12345678J"})
+    current = persona.find({"nombre": "Santiago G. Dominguez"})
     # Obtener primer documento
     p2 = next(iter(current), None)
     if p2 is None:
@@ -519,3 +563,7 @@ if __name__ == '__main__':
     # Guardar
     p.save()
     print("Update persona OK")
+
+    print("NAMESPACE:", persona._db.full_name)  # debería ser 'practica_mongo.persona'
+    print("DB usada:", persona._db.database.name)
+    print("Colección:", persona._db.name)
