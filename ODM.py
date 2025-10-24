@@ -414,7 +414,7 @@ class ModelCursor:
             
 
 
-def initApp(definitions_path: str = "./models.yml", mongodb_uri= "mongodb+srv://admin1234:Xhantiago2005@cluster0.hb27z86.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0" ,db_name="practica_mongo", scope=globals()) -> None:
+def initApp(definitions_path: str = "./models.yml" ,db_name="practica_mongo", scope=globals()) -> None:
     """ 
     Declara las clases que heredan de Model para cada uno de los 
     modelos de las colecciones definidas en definitions_path.
