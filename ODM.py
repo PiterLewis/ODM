@@ -345,14 +345,33 @@ if __name__ == '__main__':
     # si no existe se crea una nueva y se guarda en redis
     
 
-    nombreUsuario = input("Introduce tu nombre de usuario: ")
-    contrasenia = input("Introduce tu contrasenia: ")
+    usuario_input = input("Usuario a registrar: ")
+    pass_input = input("Contraseña: ")
+    nombre_real = input("Nombre completo: ")
 
-    sesion = Sesiones(nombreUsuario, contrasenia, nombreUsuario, generate_token(), generate_token())
     
-    print(f"Sesion creada para el usuario {nombreUsuario} con token {sesion._tokenSesion}")
+    nueva_sesion = Sesiones(usuario_input, pass_input, nombre_real)
+    if nueva_sesion.registrar():
+        print(f"Usuario {usuario_input} registrado correctamente.")
+    else:
+        print("El usuario ya existía.")
 
-    sesion_result = Sesiones.login(nombreUsuario, contrasenia)
+    
+    print("\n Intentando login con usuario y contrasenia ")
+    privilegios, token = Sesiones.login(usuario_input, pass_input)
+    
+    if privilegios != -1:
+        print(f"Login bien hecho, privilegios: {privilegios}, Token generado: {token}")
+    else:
+        print("(usuario o pass incorrectos)")
 
+    print(f"\n Intentando login con token ({token}) ")
+    
+    priv_token = Sesiones.login_token(token)
+    
+    if priv_token != -1:
+        print(f"Sesión válida. Tienes privilegios nivel: {priv_token}")
+    else:
+        print("Sesión expirada o inválida.")
 
     
