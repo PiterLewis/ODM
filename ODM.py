@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 import redis
 import os
 import json
+import random
 from sesiones import Sesiones
 
 load_dotenv()
@@ -240,8 +241,8 @@ def initApp(definitions_path: str = "./models.yml", db_name=None, mongodb_uri=No
     #TODO 
     # Establecer configuración inicial de la Base de Datos REDIS
     # hacer la conexion y checkear y si tiene una cookie de sesión
-
-    redis_cache = redis_conns["cache"] 
+    
+    redis_cache = redis_conns["sesiones"] 
     try:
         redis_cache.config_set("maxmemory", "150mb")
         redis_cache.config_set("maxmemory-policy", "volatile-ttl")
@@ -316,6 +317,14 @@ def initApp(definitions_path: str = "./models.yml", db_name=None, mongodb_uri=No
             admissible_vars=admissible_vars
         )
 
+    Sesiones.initRedis(redis_cache)
+
+def generate_token():
+        #math.random
+        token = random.randint(100000, 999999)
+        return token
+
+
 if __name__ == '__main__':
     
     # Inicializar base de datos y modelos con initApp
@@ -329,6 +338,21 @@ if __name__ == '__main__':
 
     # ya tenemos el 'cursor' de sesion en Redis, podemos testear ahora.
 
-    sesion = Sesiones("usuario1", "contrasenia123", "Usuario de Prueba", 5, "token_sesion_abc123")
-    print(type(sesion))
-    print("Debug : Sesion creada con exito:", sesion._nombreUsuario, sesion._tokenSesion)
+    # sacar de input nombre de usuario y contrasenia
+    # init de sesion
+    # en el init se crea el token y se guarda
+    # si esta creado el token en redis se recupera sesion
+    # si no existe se crea una nueva y se guarda en redis
+    
+
+    nombreUsuario = input("Introduce tu nombre de usuario: ")
+    contrasenia = input("Introduce tu contrasenia: ")
+
+    sesion = Sesiones(nombreUsuario, contrasenia, nombreUsuario, generate_token(), generate_token())
+    
+    print(f"Sesion creada para el usuario {nombreUsuario} con token {sesion._tokenSesion}")
+
+    sesion_result = Sesiones.login(nombreUsuario, contrasenia)
+
+
+    
