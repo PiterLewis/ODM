@@ -3,11 +3,13 @@ persona:
     - nombre
     - dni
     - mail
+    - universidad    
   admissible_vars:
     - telefono            
     - contactos_emergencia  #lista
     - direccion
     - descripcion
+    - empresa
   unique_indexes:
     - dni
   regular_indexes:
@@ -34,7 +36,7 @@ empresa:
     - telefonos           
   location_index: direccion
 
-centro_educativo:
+universidad:
   required_vars:
     - nombre
     - codigo
@@ -43,6 +45,7 @@ centro_educativo:
     - tipo              
     - telefonos          
     - descripcion
+    - web
   unique_indexes:
     - codigo
   regular_indexes:
