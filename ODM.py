@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import redis
 import os
 import json
-
+from sesiones import Sesiones
 
 load_dotenv()
 
@@ -329,12 +329,6 @@ if __name__ == '__main__':
 
     # ya tenemos el 'cursor' de sesion en Redis, podemos testear ahora.
 
-    # Sample de ejecución del GET
-    p = persona.find_by_id("ferniBerni")
-    print(p)
-
-    p = persona(nombre = "Santiago", dni = "6", mail= "xhantiago2005@gmail.com", universidad = "pu-tad")
-    p.save()
-
-    p = persona.find_by_id("Santiago")
-    print(p)
+    sesion = Sesiones("usuario1", "contrasenia123", "Usuario de Prueba", 5, "token_sesion_abc123")
+    print(type(sesion))
+    print("Debug : Sesion creada con exito:", sesion._nombreUsuario, sesion._tokenSesion)
