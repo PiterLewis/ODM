@@ -18,6 +18,7 @@ import os
 import json
 import random
 from sesiones import Sesiones
+from helpdesk import HelpDesk
 
 load_dotenv()
 
@@ -317,7 +318,9 @@ def initApp(definitions_path: str = "./models.yml", db_name=None, mongodb_uri=No
             admissible_vars=admissible_vars
         )
 
-    Sesiones.initRedis(redis_cache)
+    redis_sesiones = redis_conns["sesiones"]
+    Sesiones.initRedis(redis_sesiones)
+    HelpDesk.initRedis(redis_sesiones)
 
 def generate_token():
         #math.random

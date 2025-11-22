@@ -1,0 +1,14 @@
+[project]
+name = "odm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "geojson>=3.2.0",
+    "geopy>=2.4.1",
+    "pymongo>=4.15.4",
+    "python-dotenv>=1.2.1",
+    "pyyaml>=6.0.3",
+    "redis>=7.1.0",
+]
