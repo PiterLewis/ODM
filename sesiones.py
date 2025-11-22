@@ -52,14 +52,13 @@ class Sesiones:
         # Actualizar el token en el perfil del usuario
         cls._redis.hset(clave_usuario, "tokenSesion", nuevo_token)
 
-        # Crear la clave de sesión con expiración (Requisito: 1 mes)
-        # 30 días * 24 horas * 60 min * 60 seg = 2592000 segundos
+        # Crear la clave de sesión con expiración
         clave_sesion = f"session:{nuevo_token}"
         cls._redis.set(clave_sesion, nombreUsuario, ex=20000) 
 
         return int(privilegios), nuevo_token
 
-    # 3. Login con Token
+    # Login con Token
     @classmethod
     def login_token(cls, token):
         clave_sesion = f"session:{token}"

@@ -242,7 +242,7 @@ def initApp(definitions_path: str = "./models.yml", db_name=None, mongodb_uri=No
     # Establecer configuración inicial de la Base de Datos REDIS
     # hacer la conexion y checkear y si tiene una cookie de sesión
     
-    redis_cache = redis_conns["sesiones"] 
+    redis_cache = redis_conns["cache"] 
     try:
         redis_cache.config_set("maxmemory", "150mb")
         redis_cache.config_set("maxmemory-policy", "volatile-ttl")
@@ -344,13 +344,16 @@ if __name__ == '__main__':
     # si esta creado el token en redis se recupera sesion
     # si no existe se crea una nueva y se guarda en redis
     
-
+    # delete all keys por probar
+    Sesiones._redis.flushall()
+    
     usuario_input = input("Usuario a registrar: ")
     pass_input = input("Contraseña: ")
     nombre_real = input("Nombre completo: ")
 
     
     nueva_sesion = Sesiones(usuario_input, pass_input, nombre_real)
+
     if nueva_sesion.registrar():
         print(f"Usuario {usuario_input} registrado correctamente.")
     else:
@@ -360,6 +363,10 @@ if __name__ == '__main__':
     print("\n Intentando login con usuario y contrasenia ")
     privilegios, token = Sesiones.login(usuario_input, pass_input)
     
+    #get all keys
+    all_keys = Sesiones._redis.keys('*')
+    print("Claves en Redis:", all_keys)
+
     if privilegios != -1:
         print(f"Login bien hecho, privilegios: {privilegios}, Token generado: {token}")
     else:
