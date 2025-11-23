@@ -30,17 +30,7 @@ DB_NAME = os.getenv("DB_NAME")
 DEFINITIONS_PATH = os.getenv("DEF_PATH")
 
 
-BBDD_REDIS = {
-    "cache": 0,
-    "sesiones": 1,
-}
-
-# declaramos las conexiones con un bucle k-v 
-redis_conns = {
-    name: redis.Redis(host= REDIS_HOST, port = 11207, db = dbnum, username = REDIS_UNAME, password= REDIS_PASSWORD, decode_responses = True)
-    for name, dbnum in BBDD_REDIS.items()
-}
-
+redis_client = redis.Redis(host=REDIS_HOST,port=11207,db=0,username=REDIS_UNAME,password=REDIS_PASSWORD,decode_responses=True)
 CACHE: dict[str, Point | str] = {} #clave string valor Point
 FAIL_MESSAGE = "No se pudieron obtener coordenadas"
 NOT_ADMITTED_VARIABLE = "No esta permitida usar esta variable"
@@ -139,28 +129,60 @@ class Model:
         
         if "_id" in self._data:
         
+            # Actualización
             update_doc = {k: self._data[k] for k in getattr(self, "_modified_vars", set())}
             update_doc.pop("_id", None)
+
             if update_doc:
                 self._db.update_one({"_id": self._data["_id"]}, {"$set": update_doc})
+                
+                #Actualizar cache
+                if self._redis:
+                    cache_key = f"cache:{self.__class__.__name__}:{str(self._data['_id'])}"
+                    doc_serializable = dict(self._data)
+                    doc_serializable["_id"] = str(self._data["_id"])
+                    self._redis.setex(cache_key, 86400, json.dumps(doc_serializable))
+                
                 self._modified_vars.clear()
+            
         else:
-        
+            
+            # Inserción nueva
             result = self._db.insert_one(dict(self._data))
             self._data["_id"] = result.inserted_id
+            
+            #Guardar en cache
+            if self._redis:
+                cache_key = f"cache:{self.__class__.__name__}:{str(result.inserted_id)}"
+                doc_serializable = dict(self._data)
+                doc_serializable["_id"] = str(self._data["_id"])
+                self._redis.setex(cache_key, 86400, json.dumps(doc_serializable))
+            
             self._modified_vars.clear()
-
 
 
     def delete(self) -> None:
         
         if "_id" in self._data:
+            # Eliminar de cache primero
+            if self._redis:
+                cache_key = f"cache:{self.__class__.__name__}:{str(self._data['_id'])}"
+                self._redis.delete(cache_key)
+        
+            # Eliminar de MongoDB
             self._db.delete_one({"_id": self._data["_id"]})
-            
             self._data.clear()
             self._modified_vars.clear()
+
         else:
             raise ValueError("El modelo no existe en la base de datos.")
+    
+    @classmethod
+    def delete_all(cls) -> None:
+        """
+        SOLO POR COMODIDAD Y NO CAMBIAR EL DNI DEL USUARIO DE PRUEBA EN CADA TEST
+        """
+        return cls._db.delete_many({})
     
     @classmethod
     def find(cls, filter: dict[str, str | dict]) -> Any:
@@ -189,8 +211,47 @@ class Model:
                 Modelo del documento encontrado o None si no se encuentra
         """ 
         #TODO
-        # buscar por clave (Un get básicamente y devolvemos el propio)
-        return cls._redis.get(id)
+
+        # Construir la clave para buscar en Redis
+        cache_key = f"cache:{cls.__name__}:{id}"
+
+        # Intentar obtener del USUARIO en Redis
+        cached_data = cls._redis.get(cache_key)
+        
+        if cached_data:
+            #CACHE HIT
+            # Renovar el TTL
+            cls._redis.expire(cache_key, 86400)
+            
+            # Convertir el JSON de Redis a diccionario Python
+            doc_dict = json.loads(cached_data)
+            
+            # Convertir _id de string a ObjectId
+            if "_id" in doc_dict:
+                doc_dict["_id"] = ObjectId(doc_dict["_id"])
+            
+            # Devolver la información del usuario en cache
+            return cls(**doc_dict)
+        
+        #CACHE MISS
+        # Ahora buscamos en MongoDB
+        doc = cls._db.find_one({"_id": ObjectId(id)})
+        
+        if not doc:
+            # No existe ni en cache ni en MongoDB
+            print("No existe el documento con id: ", id)
+            return None
+        
+        # Usuario encontrado en MongoDB
+        # Preparar los datos para guardar en Redis
+        doc_serializable = dict(doc)
+        doc_serializable["_id"] = str(doc["_id"])
+        
+        # Cachear en Redis, cache key -> la clave que hemos construido, 86k -> ttl, json.dumps -> convertir a string
+        cls._redis.setex(cache_key, 86400,json.dumps(doc_serializable))
+        
+        # Devolver la información del usuario esta vez de mongo
+        return cls(**doc)
 
     @classmethod
     def init_class(cls, redis_client:None, db_collection: pymongo.collection.Collection, indexes:dict[str,str], required_vars: set[str], admissible_vars: set[str]) -> None:
@@ -243,7 +304,7 @@ def initApp(definitions_path: str = "./models.yml", db_name=None, mongodb_uri=No
     # Establecer configuración inicial de la Base de Datos REDIS
     # hacer la conexion y checkear y si tiene una cookie de sesión
     
-    redis_cache = redis_conns["cache"] 
+    redis_cache = redis_client
     try:
         redis_cache.config_set("maxmemory", "150mb")
         redis_cache.config_set("maxmemory-policy", "volatile-ttl")
@@ -283,8 +344,6 @@ def initApp(definitions_path: str = "./models.yml", db_name=None, mongodb_uri=No
         
         db_collection = db[class_name]
         
-        redis_client = redis_cache
-        
         required_vars   = set(class_def.get("required_vars", []))
         admissible_vars = set(class_def.get("admissible_vars", []))
 
@@ -318,9 +377,9 @@ def initApp(definitions_path: str = "./models.yml", db_name=None, mongodb_uri=No
             admissible_vars=admissible_vars
         )
 
-    redis_sesiones = redis_conns["sesiones"]
-    Sesiones.initRedis(redis_sesiones)
-    HelpDesk.initRedis(redis_sesiones)
+    
+    Sesiones.initRedis(redis_client)
+    HelpDesk.initRedis(redis_client)
 
 def generate_token():
         #math.random
@@ -335,53 +394,175 @@ if __name__ == '__main__':
     initApp(mongodb_uri = MONGO_URI, db_name = DB_NAME, definitions_path = DEFINITIONS_PATH)
    
 
-    ### ------------------ TEST CONEXION REDIS ------------------------------ ###
-
+    persona.delete_all()
+    redis_client.flushdb()
     
-
-    # ya tenemos el 'cursor' de sesion en Redis, podemos testear ahora.
-
-    # sacar de input nombre de usuario y contrasenia
-    # init de sesion
-    # en el init se crea el token y se guarda
-    # si esta creado el token en redis se recupera sesion
-    # si no existe se crea una nueva y se guarda en redis
+    # Test de cache
+    # crear y guardar persona
+    p1 = persona(
+        nombre="Lucia Alonso",
+        dni="00000001C",
+        mail="lucia.alonso@example.com",
+        universidad=[
+            {
+                "codigo": "UPM01",
+                "nombre": "UPM",
+                "titulo": "Grado en Ingenieria Informatica",
+                "fecha_fin": "2018-06-30"
+            }
+        ],
+        telefono="+34 611 111 111",
+        contactos_emergencia=["+34 691 111 111"],
+        direccion="C/ Gran Via 12, Madrid, 28013",
+        empresa=[
+            {
+                "nombre": "Google",
+                "cargo": "Data Scientist",
+                "fecha_inicio": "2021-02-01",
+                "fecha_fin": None,
+                "ciudad": "Madrid"
+            }
+        ],
+        descripcion="Cientifica de datos en Google"
+    )
+    p1.save()
+    print(f"persona guardada con id: {p1._id}")
     
-    # delete all keys por probar
-    Sesiones._redis.flushall()
+    # verificar que se guardo en cache
+    cache_key = f"cache:persona:{p1._id}"
+    print(f"existe en cache: {bool(redis_client.exists(cache_key))}") #true o false
     
-    usuario_input = input("Usuario a registrar: ")
-    pass_input = input("Contraseña: ")
-    nombre_real = input("Nombre completo: ")
-
+    # buscar por id viene de cache
+    id_persona = str(p1._id)
+    p2 = persona.find_by_id(id_persona)
+    print(f"primera busqueda de cache: {p2.nombre}")
     
-    nueva_sesion = Sesiones(usuario_input, pass_input, nombre_real)
+    # modificar y actualizar
+    p2.telefono = "+34 622 222 222"
+    p2.save()
+    print(f"persona modificada, cache actualizado")
+    
+    # verificar modificacion
+    p3 = persona.find_by_id(id_persona)
+    print(f"telefono actualizado: {p3.telefono}\n")
 
+    # Test de sesiones
+    # registrar usuario
+    usuario = "fernando"
+    password = "1234"
+    nueva_sesion = Sesiones(usuario, password, "Fernando Contreras")
+    
     if nueva_sesion.registrar():
-        print(f"Usuario {usuario_input} registrado correctamente.")
+        print(f"usuario {usuario} registrado")
     else:
-        print("El usuario ya existía.")
-
+        print(f"usuario {usuario} ya existia")
     
-    print("\n Intentando login con usuario y contrasenia ")
-    privilegios, token = Sesiones.login(usuario_input, pass_input)
-    
-    #get all keys
-    all_keys = Sesiones._redis.keys('*')
-    print("Claves en Redis:", all_keys)
-
+    # login con usuario y password
+    privilegios, token = Sesiones.login(usuario, password)
     if privilegios != -1:
-        print(f"Login bien hecho, privilegios: {privilegios}, Token generado: {token}")
+        print(f"login exitoso - privilegios: {privilegios}, token: {token}")
     else:
-        print("(usuario o pass incorrectos)")
-
-    print(f"\n Intentando login con token ({token}) ")
+        print("login fallido")
     
-    priv_token = Sesiones.login_token(token)
+    # login con token
+    if token:
+        priv = Sesiones.login_token(token)
+        if priv != -1:
+            print(f"sesion recuperada con token - privilegios: {priv}")
+        else:
+            print("token invalido")
     
-    if priv_token != -1:
-        print(f"Sesión válida. Tienes privilegios nivel: {priv_token}")
+    # mostrar claves de sesiones
+    sesion_keys = redis_client.keys('sesiones:*')
+    print(f"claves de sesiones en redis: {len(sesion_keys)}\n")
+    
+    #Test helpdesk
+    # registrar peticiones
+    HelpDesk.solicitar_ayuda("user123", 5)
+    HelpDesk.solicitar_ayuda("user456", 10)
+    HelpDesk.solicitar_ayuda("user789", 3)
+    print("3 peticiones registradas con prioridades: 5, 10, 3")
+    
+    # atender por orden de prioridad
+    print(f"atendiendo 1: {HelpDesk.atender_usuario()} ")
+    print(f"atendiendo 2: {HelpDesk.atender_usuario()} ")
+    print(f"atendiendo 3: {HelpDesk.atender_usuario()} ")
+    
+    # verificar cola vacia
+    pendientes = redis_client.zcard("sesiones:helpdesk_queue")
+    print(f"peticiones pendientes: {pendientes}\n")
+    
+    #Test de cache miss por si falla la expiracion
+    #crear segunda persona
+    p5 = persona(
+        nombre="Carlos Martinez",
+        dni="00000002D",
+        mail="carlos.martinez@example.com",
+        universidad=[],
+        telefono="+34 633 333 333",
+        contactos_emergencia=["+34 699 999 999"],
+        direccion="C/ Alcala 50, Madrid, 28014",
+        empresa=[],
+        descripcion="Desarrollador Backend"
+    )
+    
+    p5.save()
+    print(f"segunda persona guardada: {p5._id}")
+    
+    # eliminar de cache para simular expiracion
+    cache_key_p5 = f"cache:persona:{p5._id}"
+    redis_client.delete(cache_key_p5)
+    print("cache eliminado manualmente")
+    
+    # buscar ir a mongo y recachear
+    id_p5 = str(p5._id)
+    p6 = persona.find_by_id(id_p5)
+    print(f"encontrado en mongodb: {p6.nombre}")
+    print(f"esta ahora en cache: {bool(redis_client.exists(cache_key_p5))}\n")
+    
+    #Test de delete    
+    # verificar que esta en cache
+    print(f"en cache antes de delete: {bool(redis_client.exists(cache_key_p5))}")
+    
+    # eliminar
+    p6.delete()
+    print("persona eliminada de mongodb")
+    
+    # verificar que se elimino de cache
+    print(f"en cache despues de delete: {bool(redis_client.exists(cache_key_p5))}")
+    
+    # intentar buscar
+    p7 = persona.find_by_id(id_p5)
+    if p7 is None:
+        print("busqueda devuelve None correctamente\n")
     else:
-        print("Sesión expirada o inválida.")
+        print("error: persona todavia existe\n")
+    
+    #Test resumen final
+    print(f"total de claves en redis: {redis_client.dbsize()}")
+    
+    # cache
+    cache_keys = redis_client.keys('cache:*')
+    print(f"\nclaves de cache: {len(cache_keys)}")
+    for key in cache_keys:
+        ttl = redis_client.ttl(key)
+        print(f"  {key} (ttl: {ttl}s)")
+    
+    # sesiones
+    sesion_keys = redis_client.keys('sesiones:*')
+    print(f"\nclaves de sesiones: {len(sesion_keys)}")
+    for key in sesion_keys:
+        tipo = redis_client.type(key)
+        if tipo == 'string':
+            ttl = redis_client.ttl(key)
+            print(f"  {key} (ttl: {ttl}s)")
+        elif tipo == 'hash':
+            print(f"  {key} (hash)")
+        elif tipo == 'zset':
+            size = redis_client.zcard(key)
+            print(f"  {key} (zset, {size} items)")
+    
+    print("\ntests completados")
+    
 
     

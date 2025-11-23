@@ -4,3 +4,6 @@ __pycache__/
 .vscode/
 .venv/
 testing.txt
+.python-version
+pyproject.toml
+uv.lock

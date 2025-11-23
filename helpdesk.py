@@ -21,7 +21,7 @@ class HelpDesk:
             # Clave: "helpdesk_queue"
             # Valor: usuario_id
             # Score: prioridad
-            cls._redis.zadd("helpdesk_queue", {str(usuario_id): prioridad})
+            cls._redis.zadd("sesiones:helpdesk_queue", {str(usuario_id): prioridad})
 
     @classmethod
     def atender_usuario(cls):
@@ -35,12 +35,12 @@ class HelpDesk:
         if cls._redis:
             # bzpopmax elimina y devuelve el miembro con mayor score de un sorted set.
             # Bloquea si está vacío. timeout=0 indica bloqueo indefinido.
-            # Retorna una tupla: (key, member, score)
-            resultado = cls._redis.bzpopmax("helpdesk_queue", timeout=0)
+            # Retorna una tupla key, member, score
+            resultado = cls._redis.bzpopmax("sesiones:helpdesk_queue", timeout=0)
             
             if resultado:
-                # resultado[0] es la key ("helpdesk_queue")
-                # resultado[1] es el miembro (usuario_id)
-                # resultado[2] es el score (prioridad)
+                # resultado[0] es la key "helpdesk_queue"
+                # resultado[1] es el miembro usuario_id
+                # resultado[2] es el score prioridad
                 return resultado[1]
         return None
